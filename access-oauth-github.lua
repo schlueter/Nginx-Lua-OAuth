@@ -59,6 +59,7 @@ end
 
 
 local function on_auth(email, token, expires)
+  -- TODO
   local oauth_domain = email:match("[^@]+@(.+)")
 
   if not (whitelist or blacklist) then
@@ -107,7 +108,6 @@ local function request_access_token(code)
 						 -- , state = state
 						 }})
 
-
   if not res then
     return nil, ("auth token request failed: " .. ("unknown reason"))
   end
@@ -122,12 +122,11 @@ end
 local function redirect_to_auth()
   return ngx.redirect(auth_url .. "?" .. ngx.encode_args(
 		{ client_id = client_id
-    -- TODO something here, getting Location: http://localhost:8080/OAuth?error=redirect_uri_mismatch&error_description=The+redirect_uri+MUST+match+the+registered+callback+URL+for+this+application.&error_uri=https%3A%2F%2Fdeveloper.github.com%2Fv3%2Foauth%2F%23redirect-uri-mismatch
-    , redirect_uri  = redirect_url
-    -- , scope         = scope
-    -- , state         = state
-    -- , allow_signup  = allow_signup
-  }))
+    -- , redirect_uri =
+    -- , scope = scope
+    -- , state = state
+    -- , allow_signup = allow_signup
+    }))
 end
 
 local function authorize()
