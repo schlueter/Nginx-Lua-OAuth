@@ -1,17 +1,20 @@
--- Copyright 2015-2016 CloudFlare
--- Copyright 2014-2015 Aaron Westendorf
-
 local json = require("cjson")
 
+local scheme = ngx.var.scheme
+local host = ngx.var.host
+local port = ngx.var.oauth_proxy_port or ngx.var.server_port
 local uri = ngx.var.uri
 local uri_args = ngx.req.get_uri_args()
-local scheme = ngx.var.scheme
 
 local client_id = ngx.var.oauth_client_id
 local client_secret = ngx.var.oauth_client_secret
 
 local authorization_url = ngx.var.oauth_authorization_url
-local authorization_callback_uri = ngx.var.oauth_authorization_callback_uri
+
+local authorization_callback_uri = ngx.var.oauth_authorization_callback_uri or '/oauth/signin'
+local signout_uri = ngx.var.oauth_signout_uri or '/oauth/signout'
+
+local redirect_uri = ngx.var.oauth_redirect_uri or scheme .. '://' .. host .. ':' .. port .. authorization_callback_uri
 
 local scope = ngx.var.oauth_scope
 
@@ -24,21 +27,26 @@ local function encode_token(token)
   return ngx.encode_base64(ngx.hmac_sha1(token, domain))
 end
 
+local function decode_token(token)
+  return ngx.decode_base64(ngx.hmac_sha1(token, domain))
+end
+
 local function on_auth(token)
+    -- TODO
     ngx.log(ngx.ERR, "token: " .. token)
 end
 
 local function request_access_token(code)
 
-	local res = ngx.location.capture(
-		authorization_callback_uri,
-		{ method = ngx.HTTP_POST
-		, args = { client_id = client_id
-						 , client_secret = client_secret
-						 , code = code
-						 , redirect_uri = redirect_uri
-						 -- , state = state
-						 }})
+  local res = ngx.location.capture(
+    authorization_callback_uri,
+    { method=ngx.HTTP_POST
+    , args={ client_id=client_id
+             , client_secret=client_secret
+             , code=code
+             , redirect_uri=redirect_uri
+             -- , state=state
+             }})
 
   if not res then
     return nil, ("access token request failed: " .. ("unknown reason"))
@@ -52,17 +60,21 @@ local function request_access_token(code)
 end
 
 local function redirect_to_auth()
-  return ngx.redirect(authorization_url .. "?" .. ngx.encode_args(
-		{ client_id = client_id
-    -- , redirect_uri =
+  local auth_url = authorization_url .. "?" .. ngx.encode_args(
+    { client_id=client_id
+    , redirect_uri=redirect_uri .. '?' .. ngx.encode_args(
+      { redirect_uri=uri })
     , scope = scope
     -- , state = state
     -- , allow_signup = allow_signup
-    }))
+    })
+
+  ngx.log(ngx.DEBUG, 'redirecting to ' .. auth_url)
+  return ngx.redirect(auth_url)
 end
 
 local function authorize()
-  ngx.log(ngx.ERR, "uri: " .. uri .. ", authorization_callback_uri: " .. authorization_callback_uri)
+  ngx.log(ngx.DEBUG, "uri: " .. uri .. ", authorization_callback_uri: " .. authorization_callback_uri)
   if uri ~= authorization_callback_uri then
     return redirect_to_auth()
   end
@@ -76,7 +88,6 @@ local function authorize()
 
   local token = access_token_res.access_token
 
-  on_auth(token)
 
   local cookie_token = encode_token(token)
 
@@ -84,8 +95,18 @@ local function authorize()
     "OAuthAccessToken=" .. ngx.escape_uri(cookie_token) .. " " .. cookie_tail,
   }
 
-  -- TODO uri_args["state"] is nil
-  return ngx.redirect(uri_args["state"])
+  on_auth(token)
+
+  -- local redirect = uri_args["redirect_uri"] or '/'
+  -- ngx.log(ngx.ERR, "Redirecting to " .. redirect)
+  -- return ngx.redirect(redirect)
+end
+
+if uri == signout_uri then
+  ngx.header['Set-Cookie'] = 'OAuthAccessToken==deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+  ngx.header['Content-type'] = 'text/html'
+  ngx.say('See you around')
+  ngx.exit(ngx.HTTP_OK)
 end
 
 local token = ngx.unescape_uri(ngx.var.cookie_OAuthAccessToken or "")
