@@ -26,5 +26,6 @@ local function is_authorized()
 end
 
 if not is_authorized() then
+    ngx.log(ngx.ERR, "Redirecting to " .. login_uri)
     ngx.redirect(login_uri)
 end
