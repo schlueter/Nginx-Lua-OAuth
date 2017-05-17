@@ -14,6 +14,9 @@ local token_secret = ngx.var.oauth_token_secret or 'notsosecret'
 local proxy_api_uri = ngx.var.oauth_proxy_api_uri or '/_oauth/api/'
 local access_token_uri = ngx.var.oauth_access_token_uri or '/_oauth/access_token'
 
+local blacklist_string = ngx.var.oauth_blacklist or ''
+local blacklist = string.gmatch(blacklist_string, "%S+")
+
 local domain = ngx.var.oauth_domain or ngx.var.host
 
 local cookie_tail = "; Domain=" .. domain .. '; HttpOnly; Path=/'
@@ -93,13 +96,23 @@ local function validate(access_token)
         ngx.header['Content-type'] = 'text/html'
         ngx.status = ngx.HTTP_FORBIDDEN
         ngx.say("No access token")
-        return nil
+        return ngx.exit(ngx.HTTP_FORBIDDEN)
     end
 
     ngx.log(ngx.ERR, "Validating access token")
 
     local profile = provider_api_request('user', access_token)
     login = profile["login"]
+
+    for name in blacklist do
+        if login == name then
+            ngx.log(ngx.ERR, "Blocking blacklisted user " .. login)
+            ngx.header['Content-type'] = 'text/html'
+            ngx.status = ngx.HTTP_FORBIDDEN
+            ngx.say("Access is not allowed. If you believe this message is in error, please contact devops.")
+            return ngx.exit(ngx.HTTP_FORBIDDEN)
+        end
+    end
 
     if not validate_orgs(access_token) then
         return nil

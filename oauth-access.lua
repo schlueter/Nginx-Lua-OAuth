@@ -1,7 +1,9 @@
 local domain = ngx.var.oauth_domain or ngx.var.host
 local token_secret = ngx.var.oauth_token_secret or 'notsosecret'
-
 local login_uri = ngx.var.oauth_login_uri or '/_oauth/login'
+
+local blacklist_string = ngx.var.oauth_blacklist or ''
+local blacklist = string.gmatch(blacklist_string, "%S+")
 
 
 local function is_authorized()
@@ -12,6 +14,15 @@ local function is_authorized()
     if login == '' or token == '' then
         ngx.log(ngx.ERR, "Missing auth cookies")
         return false
+    end
+
+    for name in blacklist do
+        if login == name then
+            ngx.log(ngx.ERR, "Blocking blacklisted user " .. login)
+            ngx.header['Content-type'] = 'text/html'
+            ngx.status = ngx.HTTP_FORBIDDEN
+            ngx.say("Access is not allowed. If you believe this message is in error, please contact devops.")
+        end
     end
 
     local expected_token = ngx.encode_base64(ngx.hmac_sha1(token_secret, domain .. login))
