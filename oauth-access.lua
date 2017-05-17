@@ -1,8 +1,7 @@
-local domain = ngx.var.oauth_domain or ngx.var.host
-local token_secret = ngx.var.oauth_token_secret or 'notsosecret'
-local login_uri = ngx.var.oauth_login_uri or '/_oauth/login'
-
-local blacklist_string = ngx.var.oauth_blacklist or ''
+local domain = oauth_domain or ngx.var.oauth_domain or ngx.var.host
+local token_secret = oauth_token_secret or ngx.var.oauth_token_secret or 'notsosecret'
+local login_uri = oauth_login_uri or ngx.var.oauth_login_uri or '/_oauth/login'
+local blacklist_string = oauth_blacklist or ngx.var.oauth_blacklist or ''
 local blacklist = string.gmatch(blacklist_string, "%S+")
 
 

@@ -3,21 +3,21 @@ local zlib = require("zlib")
 
 local uri_args = ngx.req.get_uri_args()
 
-local client_secret = ngx.var.oauth_client_secret
-local client_id = ngx.var.oauth_client_id
+local client_secret = oauth_client_secret or ngx.var.oauth_client_secret
+local client_id = oauth_client_id or ngx.var.oauth_client_id
 
-local scope = ngx.var.oauth_scope or 'read:org'
+local scope = oauth_scope or ngx.var.oauth_scope or 'read:org'
 
-local valid_org = ngx.var.oauth_org
-local token_secret = ngx.var.oauth_token_secret or 'notsosecret'
+local valid_org = oauth_org or ngx.var.oauth_org
+local token_secret = oauth_token_secret or ngx.var.oauth_token_secret or 'notsosecret'
 
-local proxy_api_uri = ngx.var.oauth_proxy_api_uri or '/_oauth/api/'
-local access_token_uri = ngx.var.oauth_access_token_uri or '/_oauth/access_token'
+local proxy_api_uri = oauth_proxy_api_uri or ngx.var.oauth_proxy_api_uri or '/_oauth/api/'
+local access_token_uri = oauth_access_token_uri or ngx.var.oauth_access_token_uri or '/_oauth/access_token'
 
-local blacklist_string = ngx.var.oauth_blacklist or ''
+local blacklist_string = oauth_blacklist or ngx.var.oauth_blacklist or ''
 local blacklist = string.gmatch(blacklist_string, "%S+")
 
-local domain = ngx.var.oauth_domain or ngx.var.host
+local domain = oauth_domain or ngx.var.oauth_domain or ngx.var.host
 
 local cookie_tail = "; Domain=" .. domain .. '; HttpOnly; Path=/'
 
@@ -152,7 +152,7 @@ local function authorize()
         return ngx.exit(ngx.HTTP_FORBIDDEN)
     end
 
-    local expiry = "; Max-Age=" .. (ngx.time() + 60*60*24*14)
+    local expiry = "; Max-Age=" .. (ngx.time() + 60*60)
     local cookies = {
       "OAuthLogin=" .. ngx.escape_uri(login) .. cookie_tail .. expiry,
       "OAuthAccessToken=" .. ngx.escape_uri(token) .. cookie_tail .. expiry,

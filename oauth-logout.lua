@@ -1,4 +1,4 @@
-local domain = ngx.var.oauth_domain or ngx.var.host
+local domain = oauth_domain or ngx.var.oauth_domain or ngx.var.host
 local cookie_tail = "; Domain=" .. domain .. '; HttpOnly; Path=/'
 
 
