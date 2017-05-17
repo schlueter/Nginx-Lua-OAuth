@@ -1,53 +1,28 @@
 local json = require("cjson")
 local zlib = require("zlib")
 
-local scheme = ngx.var.scheme
-local host = ngx.var.host
-local port = ngx.var.oauth_proxy_port or ngx.var.server_port
-local uri = ngx.var.uri
 local uri_args = ngx.req.get_uri_args()
 
-local client_id = ngx.var.oauth_client_id
 local client_secret = ngx.var.oauth_client_secret
-
-local authorization_url = ngx.var.oauth_authorization_url
-
-local authorization_callback_uri = ngx.var.oauth_authorization_callback_uri or '/oauth/signin'
-local provider_uri = ngx.var.oauth_provider_uri or '/oauth/provider'
-local proxy_api_uri = ngx.var.oauth_proxy_api_uri or '/oauth/api/'
-local signout_uri = ngx.var.oauth_signout_uri or '/oauth/signout'
-local token_secret = ngx.var.oauth_token_secret or 'notsosecret'
-
-local redirect_uri = ngx.var.oauth_redirect_uri or scheme .. '://' .. host .. ':' .. port .. authorization_callback_uri
+local client_id = ngx.var.oauth_client_id
 
 local scope = ngx.var.oauth_scope or 'read:org'
 
-local domain = ngx.var.oauth_domain or ngx.var.host
-local client_secret = ngx.var.oauth_client_secret
 local valid_org = ngx.var.oauth_org
-local blacklist = string.gmatch(ngx.var.oauth_blacklist, "(%g+) ?")
+local token_secret = ngx.var.oauth_token_secret or 'notsosecret'
+
+local proxy_api_uri = ngx.var.oauth_proxy_api_uri or '/_oauth/api/'
+local oaas_token_uri = ngx.var.oauth_provider_uri or '/_oauth/provider'
+
+local domain = ngx.var.oauth_domain or ngx.var.host
 
 local cookie_tail = "; Domain=" .. domain .. '; HttpOnly; Path=/'
 
 
-local function handle_subrequest_error(response)
-
-  if not response then
-    return "failed"
-  end
-
-  if response.status ~= 200 then
-    return "failed with " .. response.status .. ": " .. response.body
-  end
-
-  return nil
-
-end
-
 local function request_access_token(code)
   ngx.log(ngx.ERR, 'Requesting access token with code ' .. code)
   local res = ngx.location.capture(
-    authorization_callback_provider,
+    provider_uri,
     { method=ngx.HTTP_POST
     , args={ client_id=client_id
              , client_secret=client_secret
@@ -66,6 +41,18 @@ local function request_access_token(code)
   end
 end
 
+local function handle_subrequest_error(response)
+  if not response then
+    return "failed"
+  end
+
+  if response.status ~= 200 then
+    return "failed with " .. response.status .. ": " .. response.body
+  end
+
+  return nil
+end
+
 local function provider_api_request(api_uri, token)
   ngx.req.set_header('Authorization', "token " .. token)
   local api_request_uri = proxy_api_uri .. api_uri
@@ -80,18 +67,7 @@ local function provider_api_request(api_uri, token)
     local stream = zlib.inflate()
     local inflated_body = stream(api_res.body)
     ngx.log(ngx.ERR, 'api response body: ' .. inflated_body)
-    return json.decode(inflated_body)
   end
-end
-
-local function redirect_to_auth()
-  local auth_url = authorization_url .. "?" .. ngx.encode_args(
-    { client_id=client_id
-    -- , redirect_uri=redirect_uri .. '?' .. ngx.encode_args({ redirect_uri=uri })
-    , scope = scope
-    })
-  ngx.log(ngx.ERR, 'redirecting to ' .. auth_url)
-  return ngx.redirect(auth_url)
 end
 
 local function validate_orgs(access_token)
@@ -145,6 +121,15 @@ local function validate(login, access_token, token)
   return login, expected_token
 end
 
+local function redirect_to_auth()
+  local auth_url = authorization_url .. "?" .. ngx.encode_args(
+    { client_id=client_id
+    , scope = scope
+    })
+  ngx.log(ngx.ERR, 'redirecting to ' .. auth_url)
+  return ngx.redirect(auth_url)
+end
+
 local function authorize()
 
   ngx.log(ngx.ERR, "Checking uri " .. uri .. " agaist callback uri " .. authorization_callback_uri)
@@ -187,51 +172,4 @@ local function authorize()
     return ngx.exit(ngx.HTTP_FORBIDDEN)
   end
 
-end
-
-local function is_authorized()
-  local login = ngx.unescape_uri(ngx.var.cookie_OAuthLogin)
-  local token = ngx.unescape_uri(ngx.var.cookie_OAuthAccessToken)
-  ngx.log(ngx.ERR, "Checking authorization of " .. login .. " with token " .. token)
-
-  if login == '' or token == '' then
-    ngx.log(ngx.ERR, "Missing login or token")
-    return false
-  end
-
-  for bad_login in blacklist do
-    if login == bad_login then
-      ngx.log(ngx.ERR, "User " .. login .. " is blacklisted")
-      return ngx.exit(ngx.HTTP_FORBIDDEN)
-    end
-  end
-  ngx.log(ngx.ERR, "User " .. login .. " is not blacklisted")
-
-  local expected_token = ngx.encode_base64(ngx.hmac_sha1(token_secret, domain .. login))
-  ngx.log(ngx.ERR, "Checking " .. login .. "'s token, " .. (token or 'nil') .. ", against expected token, " .. expected_token)
-  if token ~= expected_token then
-    ngx.log(ngx.ERR, "User " .. login .. " has a bad token")
-    return false
-  end
-  ngx.log(ngx.ERR, login .. " is authorized")
-  return true
-end
-
-local function handle_signout()
-  if uri == signout_uri then
-    ngx.header['Set-Cookie'] = 'OAuthAccessToken==deleted' .. cookie_tail .. '; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-    ngx.header['Content-type'] = 'text/html'
-    ngx.say('See you around')
-    ngx.exit(ngx.HTTP_OK)
-  end
-end
-
-handle_signout()
-
-if not is_authorized() then
-  authorize()
-end
-
-if uri == authorization_callback_uri then
-  uri = '/'
 end
