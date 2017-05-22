@@ -35,7 +35,19 @@ local function is_authorized()
     return true
 end
 
+local function target_url()
+    return ngx.var.scheme .. '://' .. ngx.var.host .. ngx.var.request_uri
+end
+
+local function redirect_to_login(target_uri)
+    local login_args = { target_uri=target_uri or '/' }
+    local encoded_login_args = ngx.encode_args(login_args)
+    -- i.e. http://my_oauth_url/_oauth/login?target_uri=/
+    local login_uri_with_args = login_uri .. '?' .. encoded_login_args
+    ngx.log(ngx.ERR, "Redirecting to " .. login_uri_with_args)
+    ngx.redirect(login_uri_with_args)
+end
+
 if not is_authorized() then
-    ngx.log(ngx.ERR, "Redirecting to " .. login_uri)
-    ngx.redirect(login_uri)
+    redirect_to_login(target_url())
 end

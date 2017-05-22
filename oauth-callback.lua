@@ -163,7 +163,7 @@ local function authorize()
     end
 
     ngx.header["Set-Cookie"] = cookies
-    local redirect = '/'
+    local redirect = uri_args['target_uri'] or '/'
     ngx.log(ngx.ERR, "Redirecting to " .. redirect)
     return ngx.redirect(redirect)
 end
