@@ -20,7 +20,7 @@ local function is_authorized()
             ngx.log(ngx.ERR, "Blocking blocklisted user " .. login)
             ngx.header['Content-type'] = 'text/html'
             ngx.status = ngx.HTTP_FORBIDDEN
-            ngx.say("Access is not allowed. If you believe this message is in error, please contact devops.")
+            ngx.say("Access is not allowed.")
         end
     end
 
