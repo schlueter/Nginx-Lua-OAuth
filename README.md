@@ -1,6 +1,6 @@
 # Github Nginx OAuth
 
-This is a simple set of lua scripts to enable basic OAuth against GitHub, allowing access to users in a specific organization and not on a blacklist.
+This is a simple set of lua scripts to enable basic OAuth against GitHub, allowing access to users in a specific organization and not on a blocklist.
 
 ## Development
 

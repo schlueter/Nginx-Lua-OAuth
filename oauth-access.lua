@@ -1,8 +1,8 @@
 local domain = oauth_domain or ngx.var.oauth_domain or ngx.var.host
 local token_secret = oauth_token_secret or ngx.var.oauth_token_secret or 'notsosecret'
 local login_uri = oauth_login_uri or ngx.var.oauth_login_uri or '/_oauth/login'
-local blacklist_string = oauth_blacklist or ngx.var.oauth_blacklist or ''
-local blacklist = string.gmatch(blacklist_string, "%S+")
+local blocklist_string = oauth_blocklist or ngx.var.oauth_blocklist or ''
+local blocklist = string.gmatch(blocklist_string, "%S+")
 
 
 local function is_authorized()
@@ -15,9 +15,9 @@ local function is_authorized()
         return false
     end
 
-    for name in blacklist do
+    for name in blocklist do
         if login == name then
-            ngx.log(ngx.ERR, "Blocking blacklisted user " .. login)
+            ngx.log(ngx.ERR, "Blocking blocklisted user " .. login)
             ngx.header['Content-type'] = 'text/html'
             ngx.status = ngx.HTTP_FORBIDDEN
             ngx.say("Access is not allowed. If you believe this message is in error, please contact devops.")
